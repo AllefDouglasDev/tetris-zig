@@ -1,0 +1,14 @@
+# Zig build artifacts
+.zig-cache/
+zig-out/
+
+# Compiled output
+*.o
+*.obj
+*.exe
+*.pdb
+*.lib
+*.a
+
+# OS files
+.DS_Store
