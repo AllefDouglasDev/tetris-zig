@@ -71,10 +71,10 @@ pub fn main(init: std.process.Init) !void {
     std.log.debug("square_size_px {d}\nhalf_square_size_ndc {d:.4}\nsquare_size_ndc {d:.4}", .{ square_size_px, half_square_size_ndc, square_size_ndc });
 
     const vertices = [_]f32{
-         half_square_size_ndc,  half_square_size_ndc, 0.0, // Top right
-         half_square_size_ndc, -half_square_size_ndc, 0.0, // Bottom right
+        half_square_size_ndc, half_square_size_ndc, 0.0, // Top right
+        half_square_size_ndc, -half_square_size_ndc, 0.0, // Bottom right
         -half_square_size_ndc, -half_square_size_ndc, 0.0, // Bottom left
-        -half_square_size_ndc,  half_square_size_ndc, 0.0, // Top left
+        -half_square_size_ndc, half_square_size_ndc, 0.0, // Top left
     };
 
     const indices = [_]u32{
@@ -105,23 +105,11 @@ pub fn main(init: std.process.Init) !void {
 
     const io = init.io;
     var last_time = std.Io.Clock.now(.awake, io).toMilliseconds();
-    var fall_velocity: f32 = 1;
-    const move_velocity: f32 = 0.09;
+    var fall_velocity_sec: f32 = 1;
+    const move_velocity_sec: f32 = 0.09;
     var fall_spent_sec: f32 = 0;
     var move_block_spent_sec: f32 = 0;
-    var b = Block{
-        .shape = .{
-            1, 1, 0, 0, 
-            1, 1, 0, 0
-        },
-        .color = .{
-            .x = 1.0,
-            .y = 0.0,
-            .z = 0.0,
-        },
-        .pos = .{ .x = 0, .y = 0 },
-        .orientation = .up,
-    };
+    var active_block = create_block(.t, .{ .x = 3, .y = 0 });
 
     while (c.glfwWindowShouldClose(window) == 0) {
         const current_time = std.Io.Clock.now(.awake, io).toMilliseconds();
@@ -130,38 +118,37 @@ pub fn main(init: std.process.Init) !void {
         fall_spent_sec += @as(f32, @floatFromInt(dt)) / 1000.0;
         move_block_spent_sec += @as(f32, @floatFromInt(dt)) / 1000.0;
 
-
         const d_key = c.glfwGetKey(window, c.GLFW_KEY_D);
         const a_key = c.glfwGetKey(window, c.GLFW_KEY_A);
         const s_key = c.glfwGetKey(window, c.GLFW_KEY_S);
-        if (move_block_spent_sec > move_velocity) {
+        if (move_block_spent_sec > move_velocity_sec) {
             move_block_spent_sec = 0;
             if (d_key == c.GLFW_PRESS) {
-                b.pos.x += 1;
+                active_block.pos.x += 1;
             }
             if (a_key == c.GLFW_PRESS) {
-                b.pos.x -= 1;
+                active_block.pos.x -= 1;
             }
-            if (b.pos.x < 0) {
-                b.pos.x = 0;
+            if (active_block.pos.x < 0) {
+                active_block.pos.x = 0;
             }
-            if (b.pos.x > square_amount - b.getSize().x) {
-                b.pos.x = square_amount - b.getSize().x;
+            if (active_block.pos.x > square_amount - active_block.getSize().x) {
+                active_block.pos.x = square_amount - active_block.getSize().x;
             }
         }
 
         if (s_key == c.GLFW_PRESS) {
-            fall_velocity = 0.2;
+            fall_velocity_sec = 0.2;
         } else {
-            fall_velocity = 1.0;
+            fall_velocity_sec = 1.0;
         }
 
-        if (fall_spent_sec > fall_velocity) {
+        if (fall_spent_sec > fall_velocity_sec) {
             fall_spent_sec = 0;
-            if (b.pos.y >= (square_amount - b.getSize().y)) {
-                b.pos.y = square_amount - b.getSize().y;
+            if (active_block.pos.y >= (square_amount - active_block.getSize().y)) {
+                active_block.pos.y = square_amount - active_block.getSize().y;
             } else {
-                b.pos.y += 1;
+                active_block.pos.y += 1;
             }
         }
 
@@ -171,7 +158,7 @@ pub fn main(init: std.process.Init) !void {
         c.glUseProgram(shader_program);
         c.glBindVertexArray(vao);
 
-        draw_l(offset_loc, u_color_loc, b);
+        draw_block(offset_loc, u_color_loc, active_block);
 
         c.glfwSwapBuffers(window);
         c.glfwPollEvents();
@@ -195,12 +182,91 @@ const Vec3 = struct {
     z: f32,
 };
 
+const BlockType = enum {
+    j, l, t, o, z, s, i,
+};
+
 const BlockOrientation = enum(i8) {
-    up= 0,
+    up = 0,
     down = 1,
     right = 2,
     left = 3,
 };
+
+fn create_block(block_type: BlockType, pos: Vec2) Block {
+    return switch (block_type) {
+        .j => .{
+            .shape = .{ 1, 0, 0, 0, 1, 1, 1, 0 },
+            .color = .{
+                .x = 0.0, // Blue
+                .y = 0.0,
+                .z = 1.0,
+            },
+            .pos = pos, // Adjust coordinates to fit your game loop
+            .orientation = .up,
+        },
+        .l => .{
+            .shape = .{ 0, 0, 1, 0, 1, 1, 1, 0 },
+            .color = .{
+                .x = 1.0, // Orange
+                .y = 0.5,
+                .z = 0.0,
+            },
+            .pos = pos,
+            .orientation = .up,
+        },
+        .t => .{
+            .shape = .{ 0, 1, 0, 0, 1, 1, 1, 0 },
+            .color = .{
+                .x = 0.5, // Purple
+                .y = 0.0,
+                .z = 0.5,
+            },
+            .pos = pos,
+            .orientation = .up,
+        },
+        .o => .{
+            .shape = .{ 1, 1, 0, 0, 1, 1, 0, 0 },
+            .color = .{
+                .x = 1.0, // Yellow
+                .y = 1.0,
+                .z = 0.0,
+            },
+            .pos = pos,
+            .orientation = .up,
+        },
+        .z => .{
+            .shape = .{ 1, 1, 0, 0, 0, 1, 1, 0 },
+            .color = .{
+                .x = 1.0, // Red
+                .y = 0.0,
+                .z = 0.0,
+            },
+            .pos = pos,
+            .orientation = .up,
+        },
+        .s => .{
+            .shape = .{ 0, 1, 1, 0, 1, 1, 0, 0 },
+            .color = .{
+                .x = 0.0, // Green
+                .y = 1.0,
+                .z = 0.0,
+            },
+            .pos = pos,
+            .orientation = .up,
+        },
+        .i => .{
+            .shape = .{ 0, 0, 0, 0, 1, 1, 1, 1 },
+            .color = .{
+                .x = 0.0, // Cyan
+                .y = 1.0,
+                .z = 1.0,
+            },
+            .pos = pos,
+            .orientation = .up,
+        },
+    };
+}
 
 const Block = struct {
     shape: [8]i8,
@@ -212,7 +278,7 @@ const Block = struct {
         var first_line: i8 = 0;
         var second_line: i8 = 0;
         for (self.shape, 0..) |val, idx| {
-            if (val == 0) continue; 
+            if (val == 0) continue;
             if (idx < 4) first_line += 1 else second_line += 1;
         }
         const x: i8 = if (first_line > second_line) first_line else second_line;
@@ -237,7 +303,7 @@ fn pos_to_ndc(pos: Vec2) Vec2 {
     };
 }
 
-fn draw_l(offset_loc: i32, u_color_loc: i32, b: Block) void {
+fn draw_block(offset_loc: i32, u_color_loc: i32, b: Block) void {
     const end_of_line = 3;
     var col: f32 = 0;
     var row: f32 = 0;
@@ -254,12 +320,11 @@ fn draw_l(offset_loc: i32, u_color_loc: i32, b: Block) void {
         if (i == end_of_line) {
             col = 0;
             row = 1;
-        }    
+        }
     }
 }
 
-/// Pixel to Normalized Device Coordinates (-1..1) 
+/// Pixel to Normalized Device Coordinates (-1..1)
 fn px_to_ndc(px: f32) f32 {
     return px / width;
 }
-
